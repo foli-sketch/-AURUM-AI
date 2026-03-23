@@ -1,57 +1,54 @@
-import { 
-  useGetTradingSignal, 
-  useGetMarketNews, 
-  useGetSignalHistory, 
+import {
+  useGetTradingSignal,
+  useGetMarketNews,
+  useGetSignalHistory,
+  useGetAnalysis,
+  sendChat,
+  broadcastTelegram,
   GetTradingSignalTimeframe,
-  healthCheck
+  TradingSignal,
+  NewsItem,
+  HistorySignal,
+  ChatRequest,
+  TelegramRequest,
 } from "@workspace/api-client-react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 
-// Health check to ensure backend is up
-export function useBackendHealth(autoRefresh: boolean) {
-  return useQuery({
-    queryKey: ['/api/healthz'],
-    queryFn: async () => {
-      const res = await healthCheck();
-      return res;
-    },
-    refetchInterval: autoRefresh ? 30000 : false,
-    retry: false
-  });
-}
+export type { TradingSignal, NewsItem, HistorySignal, GetTradingSignalTimeframe };
+export type Timeframe = GetTradingSignalTimeframe;
 
-// Wrapper hooks that inject the auto-refresh logic
-export function useLiveSignal(timeframe: GetTradingSignalTimeframe, autoRefresh: boolean) {
+export function useLiveSignal(timeframe: Timeframe, autoRefresh: boolean) {
   return useGetTradingSignal(
     { timeframe },
-    { 
-      query: { 
-        refetchInterval: autoRefresh ? 30000 : false,
-        staleTime: 10000,
-        retry: 2
-      } 
-    }
+    { query: { refetchInterval: autoRefresh ? 30000 : false, staleTime: 10000, retry: 2 } }
   );
 }
 
 export function useLiveNews(autoRefresh: boolean) {
   return useGetMarketNews(
-    { 
-      query: { 
-        refetchInterval: autoRefresh ? 60000 : false,
-        staleTime: 30000
-      } 
-    }
+    { query: { refetchInterval: autoRefresh ? 300000 : false, staleTime: 60000 } }
   );
 }
 
-export function useLiveHistory(autoRefresh: boolean) {
-  return useGetSignalHistory(
-    { 
-      query: { 
-        refetchInterval: autoRefresh ? 60000 : false,
-        staleTime: 30000
-      } 
-    }
+export function useSignalHistory() {
+  return useGetSignalHistory({ query: { staleTime: 10000 } });
+}
+
+export function useLiveAnalysis(timeframe: Timeframe, enabled: boolean) {
+  return useGetAnalysis(
+    { timeframe },
+    { query: { enabled, staleTime: 120000, retry: 1 } }
   );
+}
+
+export function useChatMutation() {
+  return useMutation({
+    mutationFn: (req: ChatRequest) => sendChat(req),
+  });
+}
+
+export function useTelegramMutation() {
+  return useMutation({
+    mutationFn: (req: TelegramRequest) => broadcastTelegram(req),
+  });
 }

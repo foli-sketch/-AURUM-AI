@@ -3,27 +3,40 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
+export * from "./analysisResponse";
 export * from "./candlePattern";
 export * from "./candlePatternType";
+export * from "./chatMessage";
+export * from "./chatMessageRole";
+export * from "./chatRequest";
+export * from "./chatResponse";
+export * from "./confirmation";
+export * from "./confirmationSide";
+export * from "./divergence";
 export * from "./errorResponse";
 export * from "./fvg";
+export * from "./getAnalysisParams";
+export * from "./getAnalysisTimeframe";
 export * from "./getTradingSignalParams";
 export * from "./getTradingSignalTimeframe";
 export * from "./healthStatus";
 export * from "./historySignal";
-export * from "./indicator";
-export * from "./indicatorSignal";
-export * from "./mTFBias";
-export * from "./mTFBiasTimeframes";
+export * from "./marketSnapshot";
+export * from "./marketSnapshotDivergence";
+export * from "./mTFEntry";
 export * from "./newsItem";
+export * from "./newsItemSentiment";
 export * from "./newsResponse";
 export * from "./signalHistoryResponse";
 export * from "./sMCAnalysis";
 export * from "./sMCLevel";
-export * from "./tradingSession";
+export * from "./telegramRequest";
+export * from "./telegramRequestData";
+export * from "./telegramResponse";
 export * from "./tradingSignal";
-export * from "./tradingSignalRawIndicators";
+export * from "./tradingSignalIndicators";
+export * from "./tradingSignalMtfData";
 export * from "./tradingSignalSignal";

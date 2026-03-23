@@ -3,7 +3,7 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 export interface HealthStatus {
   status: string;
@@ -13,20 +13,17 @@ export interface ErrorResponse {
   error: string;
 }
 
-export type IndicatorSignal =
-  (typeof IndicatorSignal)[keyof typeof IndicatorSignal];
+export type ConfirmationSide =
+  (typeof ConfirmationSide)[keyof typeof ConfirmationSide];
 
-export const IndicatorSignal = {
-  BUY: "BUY",
-  SELL: "SELL",
-  NEUTRAL: "NEUTRAL",
+export const ConfirmationSide = {
+  bull: "bull",
+  bear: "bear",
 } as const;
 
-export interface Indicator {
-  name: string;
-  value: number | null;
-  signal: IndicatorSignal;
-  extra?: string | null;
+export interface Confirmation {
+  text: string;
+  side: ConfirmationSide;
 }
 
 export type CandlePatternType =
@@ -62,64 +59,81 @@ export interface SMCAnalysis {
   equal_lows: number[];
 }
 
-export type MTFBiasTimeframes = { [key: string]: string };
-
-export interface MTFBias {
-  timeframes: MTFBiasTimeframes;
-  overall: string;
+export interface MTFEntry {
+  bias: string;
+  rsi?: number | null;
+  macd_bull?: boolean | null;
+  ema_bull?: boolean | null;
 }
 
-export interface TradingSession {
-  name: string;
-  active: boolean;
+export interface Divergence {
+  rsi: string;
+  macd: string;
+}
+
+export interface HistorySignal {
+  time: string;
+  timeframe: string;
+  signal: string;
+  price: number;
+  confidence: number;
+  pattern: string;
 }
 
 export type TradingSignalSignal =
   (typeof TradingSignalSignal)[keyof typeof TradingSignalSignal];
 
 export const TradingSignalSignal = {
-  STRONG_BUY: "STRONG BUY",
   BUY: "BUY",
-  WEAK_BUY: "WEAK BUY",
-  NEUTRAL: "NEUTRAL",
-  WEAK_SELL: "WEAK SELL",
   SELL: "SELL",
-  STRONG_SELL: "STRONG SELL",
+  HOLD: "HOLD",
 } as const;
 
-export type TradingSignalRawIndicators = { [key: string]: unknown };
+export type TradingSignalMtfData = { [key: string]: MTFEntry };
+
+export type TradingSignalIndicators = { [key: string]: number | null };
 
 export interface TradingSignal {
-  timestamp: string;
   price: number;
-  timeframe: string;
   signal: TradingSignalSignal;
   confidence: number;
-  strength: number;
-  entry?: number | null;
-  stop_loss?: number | null;
-  take_profit_1?: number | null;
-  take_profit_2?: number | null;
-  take_profit_3?: number | null;
-  risk_reward?: number | null;
-  indicators: Indicator[];
+  score: number;
+  bear_score: number;
+  confirmations: Confirmation[];
+  session: string;
+  trade_allowed: boolean;
+  mtf_bias: string;
+  mtf_data: TradingSignalMtfData;
+  indicators: TradingSignalIndicators;
   patterns: CandlePattern[];
+  divergence: Divergence;
   smc: SMCAnalysis;
-  mtf_bias: MTFBias;
-  session: TradingSession;
-  support_levels: number[];
-  resistance_levels: number[];
-  ai_summary?: string | null;
-  buy_score: number;
-  sell_score: number;
-  raw_indicators: TradingSignalRawIndicators;
+  support: number[];
+  resistance: number[];
+  sl?: number | null;
+  tp1?: number | null;
+  tp2?: number | null;
+  tp3?: number | null;
+  rr?: number | null;
+  timeframe: string;
+  recent_signals: HistorySignal[];
 }
+
+export type NewsItemSentiment =
+  (typeof NewsItemSentiment)[keyof typeof NewsItemSentiment];
+
+export const NewsItemSentiment = {
+  BULLISH: "BULLISH",
+  BEARISH: "BEARISH",
+  NEUTRAL: "NEUTRAL",
+} as const;
 
 export interface NewsItem {
   title: string;
-  link: string;
   summary: string;
   published: string;
+  url: string;
+  sentiment: NewsItemSentiment;
   source: string;
 }
 
@@ -127,16 +141,67 @@ export interface NewsResponse {
   news: NewsItem[];
 }
 
-export interface HistorySignal {
-  timestamp: string;
-  signal: string;
-  price: number;
-  confidence: number;
-  timeframe: string;
-}
-
 export interface SignalHistoryResponse {
   history: HistorySignal[];
+}
+
+export interface AnalysisResponse {
+  analysis: string;
+}
+
+export type ChatMessageRole =
+  (typeof ChatMessageRole)[keyof typeof ChatMessageRole];
+
+export const ChatMessageRole = {
+  user: "user",
+  assistant: "assistant",
+} as const;
+
+export interface ChatMessage {
+  role: ChatMessageRole;
+  content: string;
+}
+
+export type MarketSnapshotDivergence = { [key: string]: unknown } | null;
+
+export interface MarketSnapshot {
+  price?: number | null;
+  signal?: string | null;
+  confidence?: number | null;
+  session?: string | null;
+  mtf_bias?: string | null;
+  rsi?: number | null;
+  macd?: number | null;
+  adx?: number | null;
+  atr?: number | null;
+  ema8?: number | null;
+  ema21?: number | null;
+  patterns?: unknown[] | null;
+  divergence?: MarketSnapshotDivergence;
+  support?: number[] | null;
+  resistance?: number[] | null;
+  confirmations?: unknown[] | null;
+}
+
+export interface ChatRequest {
+  message: string;
+  history?: ChatMessage[];
+  market_snapshot?: MarketSnapshot;
+}
+
+export interface ChatResponse {
+  response: string;
+}
+
+export type TelegramRequestData = { [key: string]: unknown };
+
+export interface TelegramRequest {
+  data: TelegramRequestData;
+}
+
+export interface TelegramResponse {
+  success: boolean;
+  error?: string | null;
 }
 
 export type GetTradingSignalParams = {
@@ -147,6 +212,22 @@ export type GetTradingSignalTimeframe =
   (typeof GetTradingSignalTimeframe)[keyof typeof GetTradingSignalTimeframe];
 
 export const GetTradingSignalTimeframe = {
+  "5m": "5m",
+  "15m": "15m",
+  "30m": "30m",
+  "1h": "1h",
+  "4h": "4h",
+  "1d": "1d",
+} as const;
+
+export type GetAnalysisParams = {
+  timeframe?: GetAnalysisTimeframe;
+};
+
+export type GetAnalysisTimeframe =
+  (typeof GetAnalysisTimeframe)[keyof typeof GetAnalysisTimeframe];
+
+export const GetAnalysisTimeframe = {
   "5m": "5m",
   "15m": "15m",
   "30m": "30m",

@@ -3,27 +3,36 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
 import type {
+  AnalysisResponse,
+  ChatRequest,
+  ChatResponse,
   ErrorResponse,
+  GetAnalysisParams,
   GetTradingSignalParams,
   HealthStatus,
   NewsResponse,
   SignalHistoryResponse,
+  TelegramRequest,
+  TelegramResponse,
   TradingSignal,
 } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -32,7 +41,6 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const getHealthCheckUrl = () => {
@@ -108,8 +116,7 @@ export function useHealthCheck<
 }
 
 /**
- * Returns comprehensive gold trading signal with technical analysis
- * @summary Get gold trading signal
+ * @summary Get gold trading signal with full analysis
  */
 export const getGetTradingSignalUrl = (params?: GetTradingSignalParams) => {
   const normalizedParams = new URLSearchParams();
@@ -179,7 +186,7 @@ export type GetTradingSignalQueryResult = NonNullable<
 export type GetTradingSignalQueryError = ErrorType<ErrorResponse>;
 
 /**
- * @summary Get gold trading signal
+ * @summary Get gold trading signal with full analysis
  */
 
 export function useGetTradingSignal<
@@ -206,8 +213,7 @@ export function useGetTradingSignal<
 }
 
 /**
- * Returns latest gold market news
- * @summary Get market news
+ * @summary Get gold market news with sentiment
  */
 export const getGetMarketNewsUrl = () => {
   return `/api/trading/news`;
@@ -258,7 +264,7 @@ export type GetMarketNewsQueryResult = NonNullable<
 export type GetMarketNewsQueryError = ErrorType<unknown>;
 
 /**
- * @summary Get market news
+ * @summary Get gold market news with sentiment
  */
 
 export function useGetMarketNews<
@@ -282,7 +288,6 @@ export function useGetMarketNews<
 }
 
 /**
- * Returns list of recent signals
  * @summary Get recent signal history
  */
 export const getGetSignalHistoryUrl = () => {
@@ -356,3 +361,269 @@ export function useGetSignalHistory<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get AI-generated market analysis
+ */
+export const getGetAnalysisUrl = (params?: GetAnalysisParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/trading/analysis?${stringifiedParams}`
+    : `/api/trading/analysis`;
+};
+
+export const getAnalysis = async (
+  params?: GetAnalysisParams,
+  options?: RequestInit,
+): Promise<AnalysisResponse> => {
+  return customFetch<AnalysisResponse>(getGetAnalysisUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAnalysisQueryKey = (params?: GetAnalysisParams) => {
+  return [`/api/trading/analysis`, ...(params ? [params] : [])] as const;
+};
+
+export const getGetAnalysisQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAnalysisParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAnalysisQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnalysis>>> = ({
+    signal,
+  }) => getAnalysis(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAnalysis>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAnalysisQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAnalysis>>
+>;
+export type GetAnalysisQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get AI-generated market analysis
+ */
+
+export function useGetAnalysis<
+  TData = Awaited<ReturnType<typeof getAnalysis>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: GetAnalysisParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAnalysis>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAnalysisQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Chat with Jarvis AI about gold market
+ */
+export const getSendChatUrl = () => {
+  return `/api/trading/chat`;
+};
+
+export const sendChat = async (
+  chatRequest: ChatRequest,
+  options?: RequestInit,
+): Promise<ChatResponse> => {
+  return customFetch<ChatResponse>(getSendChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(chatRequest),
+  });
+};
+
+export const getSendChatMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendChat>>,
+    TError,
+    { data: BodyType<ChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof sendChat>>,
+  TError,
+  { data: BodyType<ChatRequest> },
+  TContext
+> => {
+  const mutationKey = ["sendChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof sendChat>>,
+    { data: BodyType<ChatRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return sendChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SendChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof sendChat>>
+>;
+export type SendChatMutationBody = BodyType<ChatRequest>;
+export type SendChatMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Chat with Jarvis AI about gold market
+ */
+export const useSendChat = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof sendChat>>,
+    TError,
+    { data: BodyType<ChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof sendChat>>,
+  TError,
+  { data: BodyType<ChatRequest> },
+  TContext
+> => {
+  return useMutation(getSendChatMutationOptions(options));
+};
+
+/**
+ * @summary Broadcast signal to Telegram
+ */
+export const getBroadcastTelegramUrl = () => {
+  return `/api/trading/telegram`;
+};
+
+export const broadcastTelegram = async (
+  telegramRequest: TelegramRequest,
+  options?: RequestInit,
+): Promise<TelegramResponse> => {
+  return customFetch<TelegramResponse>(getBroadcastTelegramUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(telegramRequest),
+  });
+};
+
+export const getBroadcastTelegramMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof broadcastTelegram>>,
+    TError,
+    { data: BodyType<TelegramRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof broadcastTelegram>>,
+  TError,
+  { data: BodyType<TelegramRequest> },
+  TContext
+> => {
+  const mutationKey = ["broadcastTelegram"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof broadcastTelegram>>,
+    { data: BodyType<TelegramRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return broadcastTelegram(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BroadcastTelegramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof broadcastTelegram>>
+>;
+export type BroadcastTelegramMutationBody = BodyType<TelegramRequest>;
+export type BroadcastTelegramMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Broadcast signal to Telegram
+ */
+export const useBroadcastTelegram = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof broadcastTelegram>>,
+    TError,
+    { data: BodyType<TelegramRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof broadcastTelegram>>,
+  TError,
+  { data: BodyType<TelegramRequest> },
+  TContext
+> => {
+  return useMutation(getBroadcastTelegramMutationOptions(options));
+};

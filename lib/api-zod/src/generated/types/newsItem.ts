@@ -3,13 +3,15 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
+import type { NewsItemSentiment } from "./newsItemSentiment";
 
 export interface NewsItem {
   title: string;
-  link: string;
   summary: string;
   published: string;
+  url: string;
+  sentiment: NewsItemSentiment;
   source: string;
 }

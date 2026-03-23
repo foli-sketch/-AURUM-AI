@@ -3,10 +3,10 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
-export interface TradingSession {
-  name: string;
-  active: boolean;
+export interface Divergence {
+  rsi: string;
+  macd: string;
 }

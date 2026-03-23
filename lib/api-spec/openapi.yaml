@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Api
-  version: 0.1.0
+  version: 0.2.0
   description: Aura Terminal Pro - Gold Trading Signal API
 servers:
   - url: /api
@@ -17,7 +17,6 @@ paths:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -29,8 +28,7 @@ paths:
     get:
       operationId: getTradingSignal
       tags: [trading]
-      summary: Get gold trading signal
-      description: Returns comprehensive gold trading signal with technical analysis
+      summary: Get gold trading signal with full analysis
       parameters:
         - name: timeframe
           in: query
@@ -41,13 +39,13 @@ paths:
             default: "1h"
       responses:
         "200":
-          description: Trading signal data
+          description: Trading signal
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TradingSignal"
         "500":
-          description: Error fetching data
+          description: Error
           content:
             application/json:
               schema:
@@ -56,8 +54,7 @@ paths:
     get:
       operationId: getMarketNews
       tags: [trading]
-      summary: Get market news
-      description: Returns latest gold market news
+      summary: Get gold market news with sentiment
       responses:
         "200":
           description: News list
@@ -70,7 +67,6 @@ paths:
       operationId: getSignalHistory
       tags: [trading]
       summary: Get recent signal history
-      description: Returns list of recent signals
       responses:
         "200":
           description: Signal history
@@ -78,6 +74,62 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SignalHistoryResponse"
+  /trading/analysis:
+    get:
+      operationId: getAnalysis
+      tags: [trading]
+      summary: Get AI-generated market analysis
+      parameters:
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1h", "4h", "1d"]
+            default: "1h"
+      responses:
+        "200":
+          description: AI analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisResponse"
+  /trading/chat:
+    post:
+      operationId: sendChat
+      tags: [trading]
+      summary: Chat with Jarvis AI about gold market
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: AI chat response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatResponse"
+  /trading/telegram:
+    post:
+      operationId: broadcastTelegram
+      tags: [trading]
+      summary: Broadcast signal to Telegram
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramRequest"
+      responses:
+        "200":
+          description: Telegram result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramResponse"
 components:
   schemas:
     HealthStatus:
@@ -85,33 +137,22 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
     ErrorResponse:
       type: object
       properties:
         error:
           type: string
-      required:
-        - error
-    Indicator:
+      required: [error]
+    Confirmation:
       type: object
       properties:
-        name:
+        text:
           type: string
-        value:
-          type: number
-          nullable: true
-        signal:
+        side:
           type: string
-          enum: ["BUY", "SELL", "NEUTRAL"]
-        extra:
-          type: string
-          nullable: true
-      required:
-        - name
-        - value
-        - signal
+          enum: ["bull", "bear"]
+      required: [text, side]
     CandlePattern:
       type: object
       properties:
@@ -120,9 +161,7 @@ components:
         type:
           type: string
           enum: ["BULLISH", "BEARISH", "NEUTRAL"]
-      required:
-        - name
-        - type
+      required: [name, type]
     SMCLevel:
       type: object
       properties:
@@ -130,9 +169,7 @@ components:
           type: number
         low:
           type: number
-      required:
-        - high
-        - low
+      required: [high, low]
     FVG:
       type: object
       properties:
@@ -142,10 +179,7 @@ components:
           type: number
         bottom:
           type: number
-      required:
-        - type
-        - top
-        - bottom
+      required: [type, top, bottom]
     SMCAnalysis:
       type: object
       properties:
@@ -169,136 +203,152 @@ components:
           type: array
           items:
             type: number
-      required:
-        - bullish_obs
-        - bearish_obs
-        - fvgs
-        - equal_highs
-        - equal_lows
-    MTFBias:
+      required: [bullish_obs, bearish_obs, fvgs, equal_highs, equal_lows]
+    MTFEntry:
       type: object
       properties:
-        timeframes:
-          type: object
-          additionalProperties:
-            type: string
-        overall:
+        bias:
           type: string
-      required:
-        - timeframes
-        - overall
-    TradingSession:
-      type: object
-      properties:
-        name:
-          type: string
-        active:
-          type: boolean
-      required:
-        - name
-        - active
-    TradingSignal:
-      type: object
-      properties:
-        timestamp:
-          type: string
-        price:
+        rsi:
           type: number
+          nullable: true
+        macd_bull:
+          type: boolean
+          nullable: true
+        ema_bull:
+          type: boolean
+          nullable: true
+      required: [bias]
+    Divergence:
+      type: object
+      properties:
+        rsi:
+          type: string
+        macd:
+          type: string
+      required: [rsi, macd]
+    HistorySignal:
+      type: object
+      properties:
+        time:
+          type: string
         timeframe:
           type: string
         signal:
           type: string
-          enum: ["STRONG BUY", "BUY", "WEAK BUY", "NEUTRAL", "WEAK SELL", "SELL", "STRONG SELL"]
+        price:
+          type: number
         confidence:
           type: number
-        strength:
+        pattern:
+          type: string
+      required: [time, timeframe, signal, price, confidence, pattern]
+    TradingSignal:
+      type: object
+      properties:
+        price:
           type: number
-        entry:
+        signal:
+          type: string
+          enum: ["BUY", "SELL", "HOLD"]
+        confidence:
           type: number
-          nullable: true
-        stop_loss:
+        score:
           type: number
-          nullable: true
-        take_profit_1:
+        bear_score:
           type: number
-          nullable: true
-        take_profit_2:
-          type: number
-          nullable: true
-        take_profit_3:
-          type: number
-          nullable: true
-        risk_reward:
-          type: number
-          nullable: true
-        indicators:
+        confirmations:
           type: array
           items:
-            $ref: "#/components/schemas/Indicator"
+            $ref: "#/components/schemas/Confirmation"
+        session:
+          type: string
+        trade_allowed:
+          type: boolean
+        mtf_bias:
+          type: string
+        mtf_data:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/MTFEntry"
+        indicators:
+          type: object
+          additionalProperties:
+            type: number
+            nullable: true
         patterns:
           type: array
           items:
             $ref: "#/components/schemas/CandlePattern"
+        divergence:
+          $ref: "#/components/schemas/Divergence"
         smc:
           $ref: "#/components/schemas/SMCAnalysis"
-        mtf_bias:
-          $ref: "#/components/schemas/MTFBias"
-        session:
-          $ref: "#/components/schemas/TradingSession"
-        support_levels:
+        support:
           type: array
           items:
             type: number
-        resistance_levels:
+        resistance:
           type: array
           items:
             type: number
-        ai_summary:
-          type: string
+        sl:
+          type: number
           nullable: true
-        buy_score:
+        tp1:
           type: number
-        sell_score:
+          nullable: true
+        tp2:
           type: number
-        raw_indicators:
-          type: object
-          additionalProperties: {}
+          nullable: true
+        tp3:
+          type: number
+          nullable: true
+        rr:
+          type: number
+          nullable: true
+        timeframe:
+          type: string
+        recent_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistorySignal"
       required:
-        - timestamp
         - price
-        - timeframe
         - signal
         - confidence
-        - strength
+        - score
+        - bear_score
+        - confirmations
+        - session
+        - trade_allowed
+        - mtf_bias
+        - mtf_data
         - indicators
         - patterns
+        - divergence
         - smc
-        - mtf_bias
-        - session
-        - support_levels
-        - resistance_levels
-        - buy_score
-        - sell_score
-        - raw_indicators
+        - support
+        - resistance
+        - timeframe
+        - recent_signals
     NewsItem:
       type: object
       properties:
         title:
           type: string
-        link:
-          type: string
         summary:
           type: string
         published:
           type: string
+        url:
+          type: string
+        sentiment:
+          type: string
+          enum: ["BULLISH", "BEARISH", "NEUTRAL"]
         source:
           type: string
-      required:
-        - title
-        - link
-        - summary
-        - published
-        - source
+      required: [title, summary, published, url, sentiment, source]
     NewsResponse:
       type: object
       properties:
@@ -306,27 +356,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/NewsItem"
-      required:
-        - news
-    HistorySignal:
-      type: object
-      properties:
-        timestamp:
-          type: string
-        signal:
-          type: string
-        price:
-          type: number
-        confidence:
-          type: number
-        timeframe:
-          type: string
-      required:
-        - timestamp
-        - signal
-        - price
-        - confidence
-        - timeframe
+      required: [news]
     SignalHistoryResponse:
       type: object
       properties:
@@ -334,5 +364,111 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/HistorySignal"
-      required:
-        - history
+      required: [history]
+    AnalysisResponse:
+      type: object
+      properties:
+        analysis:
+          type: string
+      required: [analysis]
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: ["user", "assistant"]
+        content:
+          type: string
+      required: [role, content]
+    MarketSnapshot:
+      type: object
+      properties:
+        price:
+          type: number
+          nullable: true
+        signal:
+          type: string
+          nullable: true
+        confidence:
+          type: number
+          nullable: true
+        session:
+          type: string
+          nullable: true
+        mtf_bias:
+          type: string
+          nullable: true
+        rsi:
+          type: number
+          nullable: true
+        macd:
+          type: number
+          nullable: true
+        adx:
+          type: number
+          nullable: true
+        atr:
+          type: number
+          nullable: true
+        ema8:
+          type: number
+          nullable: true
+        ema21:
+          type: number
+          nullable: true
+        patterns:
+          type: array
+          nullable: true
+          items: {}
+        divergence:
+          type: object
+          nullable: true
+          additionalProperties: {}
+        support:
+          type: array
+          nullable: true
+          items:
+            type: number
+        resistance:
+          type: array
+          nullable: true
+          items:
+            type: number
+        confirmations:
+          type: array
+          nullable: true
+          items: {}
+    ChatRequest:
+      type: object
+      properties:
+        message:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChatMessage"
+        market_snapshot:
+          $ref: "#/components/schemas/MarketSnapshot"
+      required: [message]
+    ChatResponse:
+      type: object
+      properties:
+        response:
+          type: string
+      required: [response]
+    TelegramRequest:
+      type: object
+      properties:
+        data:
+          type: object
+          additionalProperties: {}
+      required: [data]
+    TelegramResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        error:
+          type: string
+          nullable: true
+      required: [success]

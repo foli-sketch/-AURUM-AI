@@ -3,12 +3,11 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import * as zod from "zod";
 
 /**
- * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -16,8 +15,7 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns comprehensive gold trading signal with technical analysis
- * @summary Get gold trading signal
+ * @summary Get gold trading signal with full analysis
  */
 export const getTradingSignalQueryTimeframeDefault = `1h`;
 
@@ -28,40 +26,40 @@ export const GetTradingSignalQueryParams = zod.object({
 });
 
 export const GetTradingSignalResponse = zod.object({
-  timestamp: zod.string(),
   price: zod.number(),
-  timeframe: zod.string(),
-  signal: zod.enum([
-    "STRONG BUY",
-    "BUY",
-    "WEAK BUY",
-    "NEUTRAL",
-    "WEAK SELL",
-    "SELL",
-    "STRONG SELL",
-  ]),
+  signal: zod.enum(["BUY", "SELL", "HOLD"]),
   confidence: zod.number(),
-  strength: zod.number(),
-  entry: zod.number().nullish(),
-  stop_loss: zod.number().nullish(),
-  take_profit_1: zod.number().nullish(),
-  take_profit_2: zod.number().nullish(),
-  take_profit_3: zod.number().nullish(),
-  risk_reward: zod.number().nullish(),
-  indicators: zod.array(
+  score: zod.number(),
+  bear_score: zod.number(),
+  confirmations: zod.array(
     zod.object({
-      name: zod.string(),
-      value: zod.number().nullable(),
-      signal: zod.enum(["BUY", "SELL", "NEUTRAL"]),
-      extra: zod.string().nullish(),
+      text: zod.string(),
+      side: zod.enum(["bull", "bear"]),
     }),
   ),
+  session: zod.string(),
+  trade_allowed: zod.boolean(),
+  mtf_bias: zod.string(),
+  mtf_data: zod.record(
+    zod.string(),
+    zod.object({
+      bias: zod.string(),
+      rsi: zod.number().nullish(),
+      macd_bull: zod.boolean().nullish(),
+      ema_bull: zod.boolean().nullish(),
+    }),
+  ),
+  indicators: zod.record(zod.string(), zod.number().nullable()),
   patterns: zod.array(
     zod.object({
       name: zod.string(),
       type: zod.enum(["BULLISH", "BEARISH", "NEUTRAL"]),
     }),
   ),
+  divergence: zod.object({
+    rsi: zod.string(),
+    macd: zod.string(),
+  }),
   smc: zod.object({
     bullish_obs: zod.array(
       zod.object({
@@ -85,50 +83,120 @@ export const GetTradingSignalResponse = zod.object({
     equal_highs: zod.array(zod.number()),
     equal_lows: zod.array(zod.number()),
   }),
-  mtf_bias: zod.object({
-    timeframes: zod.record(zod.string(), zod.string()),
-    overall: zod.string(),
-  }),
-  session: zod.object({
-    name: zod.string(),
-    active: zod.boolean(),
-  }),
-  support_levels: zod.array(zod.number()),
-  resistance_levels: zod.array(zod.number()),
-  ai_summary: zod.string().nullish(),
-  buy_score: zod.number(),
-  sell_score: zod.number(),
-  raw_indicators: zod.record(zod.string(), zod.unknown()),
+  support: zod.array(zod.number()),
+  resistance: zod.array(zod.number()),
+  sl: zod.number().nullish(),
+  tp1: zod.number().nullish(),
+  tp2: zod.number().nullish(),
+  tp3: zod.number().nullish(),
+  rr: zod.number().nullish(),
+  timeframe: zod.string(),
+  recent_signals: zod.array(
+    zod.object({
+      time: zod.string(),
+      timeframe: zod.string(),
+      signal: zod.string(),
+      price: zod.number(),
+      confidence: zod.number(),
+      pattern: zod.string(),
+    }),
+  ),
 });
 
 /**
- * Returns latest gold market news
- * @summary Get market news
+ * @summary Get gold market news with sentiment
  */
 export const GetMarketNewsResponse = zod.object({
   news: zod.array(
     zod.object({
       title: zod.string(),
-      link: zod.string(),
       summary: zod.string(),
       published: zod.string(),
+      url: zod.string(),
+      sentiment: zod.enum(["BULLISH", "BEARISH", "NEUTRAL"]),
       source: zod.string(),
     }),
   ),
 });
 
 /**
- * Returns list of recent signals
  * @summary Get recent signal history
  */
 export const GetSignalHistoryResponse = zod.object({
   history: zod.array(
     zod.object({
-      timestamp: zod.string(),
+      time: zod.string(),
+      timeframe: zod.string(),
       signal: zod.string(),
       price: zod.number(),
       confidence: zod.number(),
-      timeframe: zod.string(),
+      pattern: zod.string(),
     }),
   ),
+});
+
+/**
+ * @summary Get AI-generated market analysis
+ */
+export const getAnalysisQueryTimeframeDefault = `1h`;
+
+export const GetAnalysisQueryParams = zod.object({
+  timeframe: zod
+    .enum(["5m", "15m", "30m", "1h", "4h", "1d"])
+    .default(getAnalysisQueryTimeframeDefault),
+});
+
+export const GetAnalysisResponse = zod.object({
+  analysis: zod.string(),
+});
+
+/**
+ * @summary Chat with Jarvis AI about gold market
+ */
+export const SendChatBody = zod.object({
+  message: zod.string(),
+  history: zod
+    .array(
+      zod.object({
+        role: zod.enum(["user", "assistant"]),
+        content: zod.string(),
+      }),
+    )
+    .optional(),
+  market_snapshot: zod
+    .object({
+      price: zod.number().nullish(),
+      signal: zod.string().nullish(),
+      confidence: zod.number().nullish(),
+      session: zod.string().nullish(),
+      mtf_bias: zod.string().nullish(),
+      rsi: zod.number().nullish(),
+      macd: zod.number().nullish(),
+      adx: zod.number().nullish(),
+      atr: zod.number().nullish(),
+      ema8: zod.number().nullish(),
+      ema21: zod.number().nullish(),
+      patterns: zod.array(zod.unknown()).nullish(),
+      divergence: zod.record(zod.string(), zod.unknown()).nullish(),
+      support: zod.array(zod.number()).nullish(),
+      resistance: zod.array(zod.number()).nullish(),
+      confirmations: zod.array(zod.unknown()).nullish(),
+    })
+    .optional(),
+});
+
+export const SendChatResponse = zod.object({
+  response: zod.string(),
+});
+
+/**
+ * @summary Broadcast signal to Telegram
+ */
+export const BroadcastTelegramBody = zod.object({
+  data: zod.record(zod.string(), zod.unknown()),
+});
+
+export const BroadcastTelegramResponse = zod.object({
+  success: zod.boolean(),
+  error: zod.string().nullish(),
 });

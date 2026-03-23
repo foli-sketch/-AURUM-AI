@@ -3,13 +3,14 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export interface HistorySignal {
-  timestamp: string;
+  time: string;
+  timeframe: string;
   signal: string;
   price: number;
   confidence: number;
-  timeframe: string;
+  pattern: string;
 }

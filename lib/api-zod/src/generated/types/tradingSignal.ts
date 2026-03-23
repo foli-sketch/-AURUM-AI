@@ -3,38 +3,39 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 import type { CandlePattern } from "./candlePattern";
-import type { Indicator } from "./indicator";
-import type { MTFBias } from "./mTFBias";
+import type { Confirmation } from "./confirmation";
+import type { Divergence } from "./divergence";
+import type { HistorySignal } from "./historySignal";
 import type { SMCAnalysis } from "./sMCAnalysis";
-import type { TradingSession } from "./tradingSession";
-import type { TradingSignalRawIndicators } from "./tradingSignalRawIndicators";
+import type { TradingSignalIndicators } from "./tradingSignalIndicators";
+import type { TradingSignalMtfData } from "./tradingSignalMtfData";
 import type { TradingSignalSignal } from "./tradingSignalSignal";
 
 export interface TradingSignal {
-  timestamp: string;
   price: number;
-  timeframe: string;
   signal: TradingSignalSignal;
   confidence: number;
-  strength: number;
-  entry?: number | null;
-  stop_loss?: number | null;
-  take_profit_1?: number | null;
-  take_profit_2?: number | null;
-  take_profit_3?: number | null;
-  risk_reward?: number | null;
-  indicators: Indicator[];
+  score: number;
+  bear_score: number;
+  confirmations: Confirmation[];
+  session: string;
+  trade_allowed: boolean;
+  mtf_bias: string;
+  mtf_data: TradingSignalMtfData;
+  indicators: TradingSignalIndicators;
   patterns: CandlePattern[];
+  divergence: Divergence;
   smc: SMCAnalysis;
-  mtf_bias: MTFBias;
-  session: TradingSession;
-  support_levels: number[];
-  resistance_levels: number[];
-  ai_summary?: string | null;
-  buy_score: number;
-  sell_score: number;
-  raw_indicators: TradingSignalRawIndicators;
+  support: number[];
+  resistance: number[];
+  sl?: number | null;
+  tp1?: number | null;
+  tp2?: number | null;
+  tp3?: number | null;
+  rr?: number | null;
+  timeframe: string;
+  recent_signals: HistorySignal[];
 }

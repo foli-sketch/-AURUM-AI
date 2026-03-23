@@ -3,18 +3,14 @@
  * Do not edit manually.
  * Api
  * Aura Terminal Pro - Gold Trading Signal API
- * OpenAPI spec version: 0.1.0
+ * OpenAPI spec version: 0.2.0
  */
 
 export type TradingSignalSignal =
   (typeof TradingSignalSignal)[keyof typeof TradingSignalSignal];
 
 export const TradingSignalSignal = {
-  STRONG_BUY: "STRONG BUY",
   BUY: "BUY",
-  WEAK_BUY: "WEAK BUY",
-  NEUTRAL: "NEUTRAL",
-  WEAK_SELL: "WEAK SELL",
   SELL: "SELL",
-  STRONG_SELL: "STRONG SELL",
+  HOLD: "HOLD",
 } as const;

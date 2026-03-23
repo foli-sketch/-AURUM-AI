@@ -5,12 +5,17 @@ const router: IRouter = Router();
 const PYTHON_PORT = process.env["PYTHON_PORT"] || "8082";
 
 function proxyToPython(req: Request, res: Response) {
-  const options = {
+  const body = req.method !== "GET" ? JSON.stringify(req.body) : undefined;
+  const options: http.RequestOptions = {
     hostname: "localhost",
     port: parseInt(PYTHON_PORT),
     path: req.originalUrl,
     method: req.method,
-    headers: req.headers,
+    headers: {
+      ...req.headers,
+      host: `localhost:${PYTHON_PORT}`,
+      ...(body ? { "content-length": Buffer.byteLength(body).toString() } : {}),
+    },
   };
 
   const proxyReq = http.request(options, (proxyRes) => {
@@ -25,15 +30,15 @@ function proxyToPython(req: Request, res: Response) {
     }
   });
 
-  if (req.body && Object.keys(req.body).length > 0) {
-    proxyReq.write(JSON.stringify(req.body));
-  }
-
+  if (body) proxyReq.write(body);
   proxyReq.end();
 }
 
-router.get("/trading/signal", proxyToPython);
-router.get("/trading/news", proxyToPython);
-router.get("/trading/history", proxyToPython);
+router.get("/trading/signal",   proxyToPython);
+router.get("/trading/news",     proxyToPython);
+router.get("/trading/history",  proxyToPython);
+router.get("/trading/analysis", proxyToPython);
+router.post("/trading/chat",     proxyToPython);
+router.post("/trading/telegram", proxyToPython);
 
 export default router;
