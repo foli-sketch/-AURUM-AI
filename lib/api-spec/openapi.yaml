@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Aura Terminal Pro - Gold Trading Signal API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: trading
+    description: Gold trading signal operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,59 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /trading/signal:
+    get:
+      operationId: getTradingSignal
+      tags: [trading]
+      summary: Get gold trading signal
+      description: Returns comprehensive gold trading signal with technical analysis
+      parameters:
+        - name: timeframe
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: ["5m", "15m", "30m", "1h", "4h", "1d"]
+            default: "1h"
+      responses:
+        "200":
+          description: Trading signal data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TradingSignal"
+        "500":
+          description: Error fetching data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /trading/news:
+    get:
+      operationId: getMarketNews
+      tags: [trading]
+      summary: Get market news
+      description: Returns latest gold market news
+      responses:
+        "200":
+          description: News list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewsResponse"
+  /trading/history:
+    get:
+      operationId: getSignalHistory
+      tags: [trading]
+      summary: Get recent signal history
+      description: Returns list of recent signals
+      responses:
+        "200":
+          description: Signal history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalHistoryResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +87,252 @@ components:
           type: string
       required:
         - status
-
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    Indicator:
+      type: object
+      properties:
+        name:
+          type: string
+        value:
+          type: number
+          nullable: true
+        signal:
+          type: string
+          enum: ["BUY", "SELL", "NEUTRAL"]
+        extra:
+          type: string
+          nullable: true
+      required:
+        - name
+        - value
+        - signal
+    CandlePattern:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: ["BULLISH", "BEARISH", "NEUTRAL"]
+      required:
+        - name
+        - type
+    SMCLevel:
+      type: object
+      properties:
+        high:
+          type: number
+        low:
+          type: number
+      required:
+        - high
+        - low
+    FVG:
+      type: object
+      properties:
+        type:
+          type: string
+        top:
+          type: number
+        bottom:
+          type: number
+      required:
+        - type
+        - top
+        - bottom
+    SMCAnalysis:
+      type: object
+      properties:
+        bullish_obs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SMCLevel"
+        bearish_obs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SMCLevel"
+        fvgs:
+          type: array
+          items:
+            $ref: "#/components/schemas/FVG"
+        equal_highs:
+          type: array
+          items:
+            type: number
+        equal_lows:
+          type: array
+          items:
+            type: number
+      required:
+        - bullish_obs
+        - bearish_obs
+        - fvgs
+        - equal_highs
+        - equal_lows
+    MTFBias:
+      type: object
+      properties:
+        timeframes:
+          type: object
+          additionalProperties:
+            type: string
+        overall:
+          type: string
+      required:
+        - timeframes
+        - overall
+    TradingSession:
+      type: object
+      properties:
+        name:
+          type: string
+        active:
+          type: boolean
+      required:
+        - name
+        - active
+    TradingSignal:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        price:
+          type: number
+        timeframe:
+          type: string
+        signal:
+          type: string
+          enum: ["STRONG BUY", "BUY", "WEAK BUY", "NEUTRAL", "WEAK SELL", "SELL", "STRONG SELL"]
+        confidence:
+          type: number
+        strength:
+          type: number
+        entry:
+          type: number
+          nullable: true
+        stop_loss:
+          type: number
+          nullable: true
+        take_profit_1:
+          type: number
+          nullable: true
+        take_profit_2:
+          type: number
+          nullable: true
+        take_profit_3:
+          type: number
+          nullable: true
+        risk_reward:
+          type: number
+          nullable: true
+        indicators:
+          type: array
+          items:
+            $ref: "#/components/schemas/Indicator"
+        patterns:
+          type: array
+          items:
+            $ref: "#/components/schemas/CandlePattern"
+        smc:
+          $ref: "#/components/schemas/SMCAnalysis"
+        mtf_bias:
+          $ref: "#/components/schemas/MTFBias"
+        session:
+          $ref: "#/components/schemas/TradingSession"
+        support_levels:
+          type: array
+          items:
+            type: number
+        resistance_levels:
+          type: array
+          items:
+            type: number
+        ai_summary:
+          type: string
+          nullable: true
+        buy_score:
+          type: number
+        sell_score:
+          type: number
+        raw_indicators:
+          type: object
+          additionalProperties: {}
+      required:
+        - timestamp
+        - price
+        - timeframe
+        - signal
+        - confidence
+        - strength
+        - indicators
+        - patterns
+        - smc
+        - mtf_bias
+        - session
+        - support_levels
+        - resistance_levels
+        - buy_score
+        - sell_score
+        - raw_indicators
+    NewsItem:
+      type: object
+      properties:
+        title:
+          type: string
+        link:
+          type: string
+        summary:
+          type: string
+        published:
+          type: string
+        source:
+          type: string
+      required:
+        - title
+        - link
+        - summary
+        - published
+        - source
+    NewsResponse:
+      type: object
+      properties:
+        news:
+          type: array
+          items:
+            $ref: "#/components/schemas/NewsItem"
+      required:
+        - news
+    HistorySignal:
+      type: object
+      properties:
+        timestamp:
+          type: string
+        signal:
+          type: string
+        price:
+          type: number
+        confidence:
+          type: number
+        timeframe:
+          type: string
+      required:
+        - timestamp
+        - signal
+        - price
+        - confidence
+        - timeframe
+    SignalHistoryResponse:
+      type: object
+      properties:
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/HistorySignal"
+      required:
+        - history

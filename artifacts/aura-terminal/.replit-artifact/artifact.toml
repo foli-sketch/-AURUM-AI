@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Aura Terminal Pro"
+version = "1.0.0"
+id = "artifacts/aura-terminal"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18963
+
+[services.development]
+run = "pnpm --filter @workspace/aura-terminal run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/aura-terminal", "run", "build" ]
+publicDir = "artifacts/aura-terminal/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18963"
+BASE_PATH = "/"
