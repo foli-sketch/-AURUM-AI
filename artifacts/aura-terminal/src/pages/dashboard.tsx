@@ -5,6 +5,7 @@ import { ConfidenceRing } from "@/components/ConfidenceRing";
 import { SRVisual } from "@/components/SRVisual";
 import { MTFTable } from "@/components/MTFTable";
 import { ChatPanel } from "@/components/ChatPanel";
+import { ChartPanel } from "@/components/ChartPanel";
 import { Skeleton, CardSkeleton } from "@/components/Skeleton";
 
 const TIMEFRAMES: Timeframe[] = ["5m", "15m", "30m", "1h", "4h", "1d"];
@@ -506,6 +507,9 @@ export default function Dashboard() {
             ) : null}
           </div>
         </div>
+
+        {/* [CHART] LIVE ANALYSIS CHART */}
+        <ChartPanel defaultTf={tf} />
 
         {/* [11] NEWS */}
         <div className="card-terminal" style={{ padding: 16, marginBottom: 14 }}>

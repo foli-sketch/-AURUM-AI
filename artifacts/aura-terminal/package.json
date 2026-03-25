@@ -73,5 +73,9 @@
     "vite": "catalog:",
     "wouter": "^3.3.5",
     "zod": "catalog:"
+  },
+  "dependencies": {
+    "@types/plotly.js": "^3.0.10",
+    "plotly.js-dist-min": "^3.4.0"
   }
 }

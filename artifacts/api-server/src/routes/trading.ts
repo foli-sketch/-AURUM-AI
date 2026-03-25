@@ -38,6 +38,7 @@ router.get("/trading/signal",   proxyToPython);
 router.get("/trading/news",     proxyToPython);
 router.get("/trading/history",  proxyToPython);
 router.get("/trading/analysis", proxyToPython);
+router.get("/trading/chart",    proxyToPython);
 router.post("/trading/chat",     proxyToPython);
 router.post("/trading/telegram", proxyToPython);
 

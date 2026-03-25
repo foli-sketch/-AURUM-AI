@@ -390,7 +390,7 @@ def get_signal():
         # ── SIGNAL DECISION ─────────────────────────────────────────────────
         confidence = min(round((max(score, bear_score) / 20) * 100), 99)
 
-        if score>=10 and score>bear_score and mtf_bias=="BULLISH" and trade_ok:
+        if score>=7 and score>bear_score and trade_ok:
             signal = "BUY"
             sl  = round(price - atr*1.5, 2)
             tp1 = round(price + atr*2.0, 2)
@@ -398,7 +398,7 @@ def get_signal():
             tp3 = round(price + atr*5.0, 2)
             rr  = round((tp1-price)/(price-sl),2) if price!=sl else 0
             final_conf = confirmations
-        elif bear_score>=10 and bear_score>score and mtf_bias=="BEARISH" and trade_ok:
+        elif bear_score>=7 and bear_score>score and trade_ok:
             signal = "SELL"
             sl  = round(price + atr*1.5, 2)
             tp1 = round(price - atr*2.0, 2)
@@ -623,6 +623,286 @@ def send_telegram():
         else:
             return jsonify({"success": False, "error": r.text}), 400
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# ─── PLOTLY CHART ────────────────────────────────────────────────────────────
+@app.route("/api/trading/chart")
+def get_chart():
+    try:
+        import plotly.graph_objects as go
+        from plotly.subplots import make_subplots
+
+        tf  = request.args.get("timeframe", "1h")
+        cfg = TF_MAP.get(tf, TF_MAP["1h"])
+        ticker = yf.Ticker("GC=F")
+        df = ticker.history(period=cfg["period"], interval=cfg["interval"])
+        if df.empty:
+            return jsonify({"error": "No data"}), 500
+        if tf == "4h":
+            df = df.resample("4h").agg({"Open":"first","High":"max","Low":"min","Close":"last","Volume":"sum"}).dropna()
+        df = df.dropna()
+        if len(df) < 30:
+            return jsonify({"error": "Insufficient data"}), 500
+
+        # Limit to last 120 candles for performance
+        df = df.iloc[-120:]
+
+        close  = df['Close']
+        high   = df['High']
+        low    = df['Low']
+        volume = df['Volume']
+
+        # Indicators
+        ema8_s   = EMAIndicator(close, 8).ema_indicator()
+        ema21_s  = EMAIndicator(close, 21).ema_indicator()
+        ema50_s  = EMAIndicator(close, 50).ema_indicator()
+        ema200_s = EMAIndicator(close, 200).ema_indicator()
+        bb       = BollingerBands(close, 20, 2)
+        bb_up    = bb.bollinger_hband()
+        bb_lo    = bb.bollinger_lband()
+        rsi_s    = RSIIndicator(close, 14).rsi()
+        macd_obj = MACD(close, 26, 12, 9)
+        macd_s   = macd_obj.macd()
+        macd_sig = macd_obj.macd_signal()
+        macd_h   = macd_obj.macd_diff()
+        atr_v    = AverageTrueRange(high, low, close, 14).average_true_range()
+
+        price   = float(close.iloc[-1])
+        atr     = float(atr_v.iloc[-1]) if not np.isnan(atr_v.iloc[-1]) else 10.0
+        patterns   = detect_patterns(df.reset_index())
+        smc        = detect_smc(df.reset_index())
+        support, resistance = get_sr_levels(df.reset_index())
+        _, mtf_bias = get_mtf_bias()
+        session, trade_ok = get_session()
+
+        # Re-run signal scoring (lightweight version)
+        e8 = safe(safe_float(ema8_s.iloc[-1]))
+        e21 = safe(safe_float(ema21_s.iloc[-1]))
+        e50 = safe(safe_float(ema50_s.iloc[-1]))
+        mv = safe(safe_float(macd_s.iloc[-1]))
+        ms_v = safe(safe_float(macd_sig.iloc[-1]))
+        rsi_v = safe(safe_float(rsi_s.iloc[-1]))
+        sc = 0
+        if e8>e21>e50: sc += 2
+        if mv>ms_v: sc += 1
+        if 40<rsi_v<70: sc += 1
+        bear_sc = 0
+        if e8<e21<e50: bear_sc += 2
+        if mv<ms_v: bear_sc += 1
+        if rsi_v>65: bear_sc += 1
+        if sc>=7 and sc>bear_sc and trade_ok:
+            sig = "BUY"
+            sl  = round(price - atr*1.5, 2)
+            tp1 = round(price + atr*2.0, 2)
+            tp2 = round(price + atr*3.5, 2)
+            tp3 = round(price + atr*5.0, 2)
+        elif bear_sc>=7 and bear_sc>sc and trade_ok:
+            sig = "SELL"
+            sl  = round(price + atr*1.5, 2)
+            tp1 = round(price - atr*2.0, 2)
+            tp2 = round(price - atr*3.5, 2)
+            tp3 = round(price - atr*5.0, 2)
+        else:
+            sig = "HOLD"; sl = tp1 = tp2 = tp3 = None
+
+        # ── BUILD FIGURE ─────────────────────────────────────────────────────
+        fig = make_subplots(
+            rows=4, cols=1,
+            shared_xaxes=True,
+            row_heights=[0.55, 0.15, 0.15, 0.15],
+            vertical_spacing=0.02,
+            subplot_titles=("XAUUSD Price", "RSI (14)", "MACD", "Volume"),
+        )
+
+        # Candlestick
+        fig.add_trace(go.Candlestick(
+            x=df.index.astype(str).tolist(),
+            open=df['Open'].tolist(), high=df['High'].tolist(),
+            low=df['Low'].tolist(),  close=df['Close'].tolist(),
+            name="XAUUSD",
+            increasing_line_color="#26a69a",
+            decreasing_line_color="#ef5350",
+            increasing_fillcolor="#26a69a",
+            decreasing_fillcolor="#ef5350",
+        ), row=1, col=1)
+
+        # EMAs
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=ema8_s.tolist(),
+            name="EMA 8",   line=dict(color="#f5a623", width=1.5)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=ema21_s.tolist(),
+            name="EMA 21",  line=dict(color="#2196F3", width=1.5)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=ema50_s.tolist(),
+            name="EMA 50",  line=dict(color="#9C27B0", width=1)), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=ema200_s.tolist(),
+            name="EMA 200", line=dict(color="#FF5722", width=1)), row=1, col=1)
+
+        # Bollinger Bands
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=bb_up.tolist(),
+            name="BB Upper", line=dict(color="#555577", width=1, dash="dash")), row=1, col=1)
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=bb_lo.tolist(),
+            name="BB Lower", line=dict(color="#555577", width=1, dash="dash"),
+            fill="tonexty", fillcolor="rgba(100,100,130,0.08)"), row=1, col=1)
+
+        # Support & Resistance
+        for lvl in resistance[:5]:
+            fig.add_hline(y=lvl, line_dash="dot",
+                line_color="rgba(255,80,80,0.65)", line_width=1.5,
+                annotation_text=f"R ${lvl:,.0f}",
+                annotation_position="right",
+                annotation_font_color="#ff5050",
+                annotation_font_size=10, row=1, col=1)
+        for lvl in support[:5]:
+            fig.add_hline(y=lvl, line_dash="dot",
+                line_color="rgba(80,255,150,0.65)", line_width=1.5,
+                annotation_text=f"S ${lvl:,.0f}",
+                annotation_position="right",
+                annotation_font_color="#50ff96",
+                annotation_font_size=10, row=1, col=1)
+
+        # Order Blocks
+        for ob in smc.get("bullish_obs", []):
+            fig.add_hrect(y0=ob["low"], y1=ob["high"],
+                fillcolor="rgba(0,255,100,0.08)",
+                line=dict(color="rgba(0,255,100,0.35)", width=1),
+                annotation_text="Bull OB",
+                annotation_font_color="#00ff64",
+                annotation_font_size=9, row=1, col=1)
+        for ob in smc.get("bearish_obs", []):
+            fig.add_hrect(y0=ob["low"], y1=ob["high"],
+                fillcolor="rgba(255,50,50,0.08)",
+                line=dict(color="rgba(255,50,50,0.35)", width=1),
+                annotation_text="Bear OB",
+                annotation_font_color="#ff3232",
+                annotation_font_size=9, row=1, col=1)
+
+        # FVG zones
+        for fvg in smc.get("fvgs", []):
+            fc = "rgba(0,200,255,0.07)" if fvg["type"]=="bullish" else "rgba(255,150,0,0.07)"
+            lc = "rgba(0,200,255,0.3)"  if fvg["type"]=="bullish" else "rgba(255,150,0,0.3)"
+            fig.add_hrect(y0=fvg["bottom"], y1=fvg["top"],
+                fillcolor=fc, line=dict(color=lc, width=1),
+                annotation_text="FVG",
+                annotation_font_color=lc.replace("0.3)","0.8)"),
+                annotation_font_size=9, row=1, col=1)
+
+        # Pattern annotations
+        x_last = df.index.astype(str).tolist()[-1]
+        for pat in patterns:
+            if pat["type"] == "BULLISH":
+                fig.add_annotation(
+                    x=x_last, y=float(df['Low'].iloc[-1]) - atr*0.3,
+                    text=f"🟢 {pat['name']}", showarrow=True, arrowhead=2,
+                    arrowcolor="#00ff64", font=dict(color="#00ff64", size=11),
+                    row=1, col=1)
+            elif pat["type"] == "BEARISH":
+                fig.add_annotation(
+                    x=x_last, y=float(df['High'].iloc[-1]) + atr*0.3,
+                    text=f"🔴 {pat['name']}", showarrow=True, arrowhead=2,
+                    arrowcolor="#ff3232", font=dict(color="#ff3232", size=11),
+                    row=1, col=1)
+
+        # Signal marker
+        if sig == "BUY":
+            fig.add_trace(go.Scatter(
+                x=[x_last], y=[float(df['Low'].iloc[-1]) - atr],
+                mode="markers+text",
+                marker=dict(symbol="triangle-up", size=18, color="#00ff64",
+                            line=dict(color="#00ff64", width=2)),
+                text=["▲ BUY"], textposition="bottom center",
+                textfont=dict(color="#00ff64", size=12),
+                name="Signal"), row=1, col=1)
+        elif sig == "SELL":
+            fig.add_trace(go.Scatter(
+                x=[x_last], y=[float(df['High'].iloc[-1]) + atr],
+                mode="markers+text",
+                marker=dict(symbol="triangle-down", size=18, color="#ff3232",
+                            line=dict(color="#ff3232", width=2)),
+                text=["▼ SELL"], textposition="top center",
+                textfont=dict(color="#ff3232", size=12),
+                name="Signal"), row=1, col=1)
+
+        # Entry / SL / TP lines
+        if sig != "HOLD" and sl is not None:
+            fig.add_hline(y=price, line_color="#ffffff", line_width=1.5,
+                annotation_text=f"ENTRY ${price:,.2f}",
+                annotation_font_color="#ffffff", annotation_font_size=10, row=1, col=1)
+            fig.add_hline(y=sl, line_color="#ff3232", line_width=1.5, line_dash="dash",
+                annotation_text=f"SL ${sl:,.2f}",
+                annotation_font_color="#ff3232", annotation_font_size=10, row=1, col=1)
+            if tp1: fig.add_hline(y=tp1, line_color="#00e676", line_width=1, line_dash="dot",
+                annotation_text=f"TP1 ${tp1:,.2f}",
+                annotation_font_color="#00e676", annotation_font_size=10, row=1, col=1)
+            if tp2: fig.add_hline(y=tp2, line_color="#00c853", line_width=1, line_dash="dot",
+                annotation_text=f"TP2 ${tp2:,.2f}",
+                annotation_font_color="#00c853", annotation_font_size=10, row=1, col=1)
+            if tp3: fig.add_hline(y=tp3, line_color="#00a84a", line_width=1.5, line_dash="dot",
+                annotation_text=f"TP3 ${tp3:,.2f}",
+                annotation_font_color="#00a84a", annotation_font_size=10, row=1, col=1)
+
+        # RSI subplot
+        rsi_list = rsi_s.tolist()
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=rsi_list,
+            name="RSI", line=dict(color="#f5a623", width=1.5)), row=2, col=1)
+        fig.add_hline(y=70, line_color="#ff3232", line_dash="dash", line_width=1, row=2, col=1)
+        fig.add_hline(y=30, line_color="#00e676", line_dash="dash", line_width=1, row=2, col=1)
+        fig.add_hline(y=50, line_color="#444", line_dash="dot", line_width=0.5, row=2, col=1)
+
+        # MACD subplot
+        macd_list = macd_s.tolist()
+        sig_list  = macd_sig.tolist()
+        hist_list = macd_h.tolist()
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=macd_list,
+            name="MACD", line=dict(color="#2196F3", width=1.5)), row=3, col=1)
+        fig.add_trace(go.Scatter(x=df.index.astype(str).tolist(), y=sig_list,
+            name="Signal", line=dict(color="#ff9800", width=1.5)), row=3, col=1)
+        fig.add_trace(go.Bar(x=df.index.astype(str).tolist(), y=hist_list,
+            name="Hist",
+            marker_color=["#26a69a" if (v is not None and v >= 0) else "#ef5350" for v in hist_list]),
+            row=3, col=1)
+
+        # Volume subplot
+        vol_colors = ["#26a69a" if float(c) >= float(o) else "#ef5350"
+                      for c, o in zip(df['Close'].tolist(), df['Open'].tolist())]
+        fig.add_trace(go.Bar(x=df.index.astype(str).tolist(), y=volume.tolist(),
+            name="Volume", marker_color=vol_colors), row=4, col=1)
+
+        # Layout
+        fig.update_layout(
+            paper_bgcolor="#0a0a0f",
+            plot_bgcolor="#0d0d18",
+            font=dict(color="#cccccc", size=11, family="Inter, system-ui"),
+            xaxis_rangeslider_visible=False,
+            legend=dict(bgcolor="rgba(18,18,26,0.9)", bordercolor="#2a2a3a",
+                        borderwidth=1, orientation="h", x=0, y=1.02,
+                        font=dict(size=10)),
+            margin=dict(l=60, r=80, t=40, b=20),
+            height=650,
+            showlegend=True,
+            hovermode="x unified",
+        )
+        fig.update_xaxes(
+            gridcolor="#1a1a2a", showgrid=True,
+            zeroline=False, showspikes=True,
+            spikecolor="#444", spikethickness=1,
+            spikemode="across",
+        )
+        fig.update_yaxes(
+            gridcolor="#1a1a2a", showgrid=True,
+            zeroline=False, showspikes=True,
+            spikecolor="#444",
+        )
+        # Subplot title colors
+        for ann in fig.layout.annotations:
+            ann.font.color = "#f5a623"
+            ann.font.size  = 11
+
+        fig_dict = fig.to_dict()
+        # Convert timestamps to strings for JSON serialization
+        return jsonify(fig_dict)
+
+    except Exception as e:
+        logger.exception(e)
         return jsonify({"error": str(e)}), 500
 
 
